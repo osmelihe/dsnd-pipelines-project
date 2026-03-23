@@ -1,140 +1,74 @@
-# Pipeline Project — Customer Review Recommendation Classifier
+# Customer Review Recommendation Classifier
 
-A machine learning pipeline that predicts whether a customer recommends a product based on their review. The dataset contains a mix of **numerical**, **categorical**, and **text** features, each handled with appropriate preprocessing inside a single scikit-learn `Pipeline`.
+This project builds a machine learning pipeline to predict whether a customer recommends a product based on their written review. The dataset comes from a women's clothing e-commerce platform and includes a mix of numerical, categorical, and free-text features.
 
----
-
-## Project Structure
-
-```
-pipeline_project/
-├── reviews.csv              # Raw dataset
-├── pipeline_project.ipynb   # Main notebook
-└── README.md
-```
+The goal is to classify each review as **recommended (1)** or **not recommended (0)** using the review content and associated metadata.
 
 ---
 
-## Dataset
+## Repository Files
 
-The dataset contains **18 442 rows** and **9 columns** with no missing values.
-
-| Column | Type | Description |
-|---|---|---|
-| `Clothing ID` | Integer (categorical) | Unique product identifier |
-| `Age` | Integer | Reviewer age (18–99) |
-| `Title` | Text | Short review title |
-| `Review Text` | Text | Full review body |
-| `Positive Feedback Count` | Integer | Upvotes from other customers (0–122) |
-| `Division Name` | Categorical | High-level product division |
-| `Department Name` | Categorical | Product department |
-| `Class Name` | Categorical | Product class |
-| `Recommended IND` | Binary (target) | 1 = Recommended, 0 = Not Recommended |
-
-**Class distribution:** ~82% recommended (1) vs ~18% not recommended (0) — significantly imbalanced.
-
----
-
-## Preprocessing Pipeline
-
-A `ColumnTransformer` applies different transformations per feature group, then merges them into a single feature matrix (~5 525 features total).
-
-| Feature Group | Columns | Transformer | Rationale |
-|---|---|---|---|
-| Numerical | `Age`, `Positive Feedback Count` | `StandardScaler` | Normalise scale for SVM |
-| Categorical (low-card.) | `Division Name`, `Department Name`, `Class Name` | `OneHotEncoder` | 2 / 6 / 14 unique values |
-| Categorical (high-card.) | `Clothing ID` | `OrdinalEncoder` | 531 unique IDs |
-| Text | `Title` | `TfidfVectorizer` (500 feat.) | Short, complementary signal |
-| Text | `Review Text` | `TfidfVectorizer` (5 000 feat.) | Primary sentiment signal |
-
-**TF-IDF settings:** `ngram_range=(1, 2)`, `sublinear_tf=True`, `min_df=2`
-
----
-
-## Models
-
-Two classifiers are compared. Both use `class_weight='balanced'` to handle the class imbalance.
-
-| Model | Notes |
+| File | Description |
 |---|---|
-| **Random Forest** | Ensemble of decision trees; handles mixed features well; produces probability estimates |
-| **Linear SVM** | Strong on high-dimensional sparse TF-IDF features; uses `decision_function` for ROC-AUC |
-
----
-
-## Evaluation Metrics
-
-Accuracy alone is misleading given the ~82/18 class split. Primary metrics:
-
-- **F1 Macro** — unweighted mean F1 across both classes; penalises weak minority-class recall
-- **ROC-AUC** — discriminative power across all decision thresholds, threshold-independent
-- **Accuracy** — included for reference only
-- **Classification Report** — per-class precision, recall, F1
-
----
-
-## Fine-Tuning
-
-`GridSearchCV` with **5-fold cross-validation** jointly searches over preprocessor and classifier hyperparameters in a single grid. This is data-leakage-free because all transformations are inside the `Pipeline`.
-
-Grid parameters searched (per model):
-
-**Random Forest**
-- `preprocessor__review__max_features`: `[3000, 5000]`
-- `preprocessor__review__ngram_range`: `[(1,1), (1,2)]`
-- `classifier__n_estimators`: `[100, 200]`
-- `classifier__max_depth`: `[None, 30]`
-- `classifier__min_samples_split`: `[2, 5]`
-
-**Linear SVM**
-- `preprocessor__review__max_features`: `[3000, 5000]`
-- `preprocessor__review__ngram_range`: `[(1,1), (1,2)]`
-- `preprocessor__title__max_features`: `[300, 500]`
-- `classifier__C`: `[0.1, 1.0, 10.0]`
-
----
-
-## How to Run
-
-**1. Install dependencies**
-```bash
-conda activate <your_env>
-conda install scikit-learn pandas matplotlib -y
-```
-
-**2. Place the data file**
-```
-reviews.csv  →  same directory as the notebook
-```
-
-**3. Run the notebook**
-```
-Kernel → Restart & Run All
-```
-
----
-
-## Production Deployment
-
-The full preprocessing is embedded in the pipeline — no separate transformation step is needed at inference.
-
-```python
-import joblib
-
-# Save
-joblib.dump(best_tuned, 'recommendation_pipeline.pkl')
-
-# Load and predict
-model = joblib.load('recommendation_pipeline.pkl')
-predictions = model.predict(new_reviews_df)
-```
+| `pipeline_project.ipynb` | Main notebook — contains all data exploration, pipeline construction, model training, evaluation, and fine-tuning |
+| `reviews.csv` | Dataset with 18 442 customer reviews and 8 features |
+| `README.md` | This file |
 
 ---
 
 ## Dependencies
 
-| Package | Purpose |
-|---|---|
-| `pandas` | Data loading and manipulation |
-| `scikit-learn` | Pipeline, preprocessing, models, evaluation |
-| `matplotlib` | Visualisations |
+The project requires Python 3.11+ and the following packages:
+
+```
+pandas
+scikit-learn
+matplotlib
+```
+
+Install via conda:
+
+```bash
+conda install pandas scikit-learn matplotlib -y
+```
+
+---
+
+## How to Run
+
+1. Clone or download the repository
+2. Place `reviews.csv` in the same directory as the notebook
+3. Open `pipeline_project.ipynb` in Jupyter
+4. Run **Kernel → Restart & Run All**
+
+---
+
+## Project Summary
+
+### Data
+
+The dataset contains 18 442 rows with no missing values. Features include the reviewer's age, the clothing item ID, free-text title and review body, a positive feedback count, and three categorical product labels (division, department, class). The target variable is binary and imbalanced — approximately 82% of reviews are positive recommendations.
+
+### Approach
+
+Because the data contains three different types of features, a `ColumnTransformer` is used inside a scikit-learn `Pipeline` to apply the right preprocessing to each column:
+
+- Numerical columns are scaled with `StandardScaler`
+- Low-cardinality categorical columns are encoded with `OneHotEncoder`
+- The high-cardinality product ID column is encoded with `OrdinalEncoder`
+- The review text and title are vectorised separately using `TfidfVectorizer` with bigrams
+
+Everything is wrapped in a single `Pipeline` object so that preprocessing is applied consistently during both cross-validation and final evaluation, with no data leakage.
+
+### Models
+
+Two classifiers are trained and compared:
+
+- **Random Forest** — handles mixed feature types well and produces probability estimates
+- **Linear SVM** — strong performer on high-dimensional TF-IDF sparse matrices
+
+Both models use `class_weight='balanced'` to account for the class imbalance. Evaluation focuses on **F1 Macro** and **ROC-AUC** rather than accuracy, since accuracy is misleading on imbalanced data.
+
+### Fine-Tuning
+
+The better-performing baseline model is further optimised using `GridSearchCV` with 5-fold cross-validation. The grid jointly searches over both TF-IDF vocabulary size and classifier hyperparameters, which is only possible because the full preprocessing is inside the pipeline.
